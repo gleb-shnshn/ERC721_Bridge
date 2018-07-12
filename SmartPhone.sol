@@ -1,4 +1,5 @@
 pragma solidity ^0.4.24;
+
 contract SmartPhone {
 
     struct Phone {
@@ -9,12 +10,15 @@ contract SmartPhone {
         bytes32 id;
     }
     
-    address vendor;
+    address dev;
+    
+    mapping(address=>bool) isVendor;
     
     Phone[] phones;
     
     function SmartPhone() public{
-        vendor=msg.sender;
+        isVendor[msg.sender]=true;
+        dev=msg.sender;
     }
     
     modifier valid(bytes32 _id){
@@ -25,13 +29,18 @@ contract SmartPhone {
     
     mapping(bytes32=>uint) getPhone;
     
+    function registerVendor(address _vendor) public{
+        require(dev==msg.sender);
+        isVendor[_vendor]=true;
+    }
+    
     function transfer(address _to, bytes32 _id) public valid(_id){
         phones[getPhone[_id]].owner=_to;
     }
     
     function createPhone(uint _weight, string _color) public{
-        require(msg.sender==vendor);
-        phones.push(Phone(_weight,false,_color,vendor,keccak256(_color,_weight, phones.length)));
+        require(isVendor[msg.sender]);
+        phones.push(Phone(_weight,false,_color,msg.sender,keccak256(_color,_weight, phones.length)));
     }
     
     function demolish(bytes32 _id) public valid(_id){
