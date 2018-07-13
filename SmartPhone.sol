@@ -10,6 +10,8 @@ contract SmartPhone {
         string color;//color of the phone
         address owner;//owner of the phone
         uint256 tokenId;//unique id of the phone
+        string model;//model of the phone
+        string brand;//brand of vendor who creates this phone
     }
     
     address dev;//address of person who deployed contract, he has the permission of registering vendors
@@ -18,6 +20,8 @@ contract SmartPhone {
     
     mapping(address=>uint256) getBalance;
     
+    mapping(address=>string) getName;
+    
     Phone[] phones;//array of phones
     
     function SmartPhone() public{//constructor of the contract
@@ -25,8 +29,9 @@ contract SmartPhone {
         dev=msg.sender;//initializing dev
     }
     
-    function registerVendor(address _vendor) public{//registering a new vendor
+    function registerVendor(address _vendor, string _name) public{//registering a new vendor
         require(dev==msg.sender);//if sender is dev
+        getName[_vendor]=_name;//giving the name for the vendor
         isVendor[_vendor]=true;//giving permisson of creating phones for a new vendor
     }
     
@@ -37,24 +42,29 @@ contract SmartPhone {
     }
     
     function getColor(uint256 _tokenId) public view returns(string){
-        require(phones[_tokenId].tokenId!=0);
-        return(phones[_tokenId].color);
+        require(phones[_tokenId-1].tokenId!=0);
+        return(phones[_tokenId-1].color);
     }
     
      function getWeight(uint256 _tokenId) public view returns(uint){
-        require(phones[_tokenId].tokenId!=0);
-        return(phones[_tokenId].weight);
+        require(phones[_tokenId-1].tokenId!=0);
+        return(phones[_tokenId-1].weight);
     }
     
      function ownerOf(uint256 _tokenId) public view returns(address){
-        require(phones[_tokenId].tokenId!=0);
-        return(phones[_tokenId].owner);
+        require(phones[_tokenId-1].tokenId!=0);
+        return(phones[_tokenId-1].owner);
     }
     
     function balanceOf(address _owner) public view returns(uint256){
         return(getBalance[_owner]);
     }
     
+    function getFullInfo(uint256 _tokenId) public view returns(string){
+        Phone _phone= phones[_tokenId-1];
+        return string(abi.encodePacked(_phone.brand, " ", _phone.model));
+    }
+
     event sent();
     event newToken(uint256);
     
@@ -64,9 +74,9 @@ contract SmartPhone {
     
     function safeTransferFrom(address _from, address _to, uint256 _tokenId) public payable{//transfering the phone to the new owner if the phone is existing
         require(_from==msg.sender);//if sender is an owner of address _from
-        require(_from==phones[_tokenId].owner);//if sender is an owner of the phone
-        require(phones[_tokenId].demolished==false);//if phone is not demolished
-        phones[_tokenId].owner=_to;//changing owner
+        require(_from==phones[_tokenId-1].owner);//if sender is an owner of the phone
+        require(phones[_tokenId-1].demolished==false);//if phone is not demolished
+        phones[_tokenId-1].owner=_to;//changing owner
         getBalance[_from]--;
         getBalance[_to]++;
         if (isContract(_to)){
@@ -76,15 +86,16 @@ contract SmartPhone {
         emit sent();//emit event of successful sending money
     }
     
-    function createPhone(uint _weight, string _color) public{
+    function createPhone(string _model, uint _weight, string _color) public{
         require(isVendor[msg.sender]);//if sender is a vendor
-        uint256 _tokenId = phones.length;//a token id is a index in array
-        phones.push(Phone(_weight,false,_color,msg.sender,_tokenId));//adding new phone in array
+        uint256 _tokenId = phones.length+1;//a token id is a index in array
+        phones.push(Phone(_weight,false,_color,msg.sender,_tokenId,_model,getName[msg.sender]));//adding new phone in array'
+        getBalance[msg.sender]++;
     }
     
     function demolish(uint256 _tokenId) public{//demolishing the phone if the phone is existing
-        require(msg.sender==phones[_tokenId].owner);//if sender is an owner of the phone 
-        require(phones[_tokenId].demolished==false);//if phone is not demolished
-        phones[_tokenId].demolished=true;
+        require(msg.sender==phones[_tokenId-1].owner);//if sender is an owner of the phone 
+        require(phones[_tokenId-1].demolished==false);//if phone is not demolished
+        phones[_tokenId-1].demolished=true;
     }
 }
