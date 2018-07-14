@@ -1,4 +1,6 @@
 pragma solidity ^0.4.24;
+pragma experimental ABIEncoderV2;
+
 contract ERC721{
     function onERC721Received(address _operator, address _from, uint256 _tokenId, bytes data) external returns(bytes4);
 }
@@ -11,7 +13,22 @@ contract SmartPhone {
         address owner;//owner of the phone
         uint256 tokenId;//unique id of the phone
         string model;//model of the phone
-        string brand;//brand of vendor who creates this phone
+        string brand;//brand of vendor who created this phone
+    }
+    
+    function getSerializedData(uint256 _tokenId) public view returns(bytes[]){
+        Phone storage _phone = phones[_tokenId-1];
+        bytes[] memory data = new bytes[](6);
+        data[0]=abi.encodePacked(_phone.weight);
+        if (_phone.demolished==true)
+            data[1]=abi.encodePacked(1);
+        else
+            data[1]=abi.encodePacked(0);
+        data[2]=abi.encodePacked(_phone.color);
+        data[3]=abi.encodePacked(_phone.owner);
+        data[4]=abi.encodePacked(_phone.model);
+        data[5]=abi.encodePacked(_phone.brand);
+        return (data);
     }
     
     address dev;//address of person who deployed contract, he has the permission of registering vendors
