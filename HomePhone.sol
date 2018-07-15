@@ -5,11 +5,7 @@ contract ERC721{
     function onERC721Received(address _operator, address _from, uint256 _tokenId, bytes data) external returns(bytes4);
 }
 
-contract Recovery{
-    
-}
-
-contract SmartPhone {
+contract HomePhone {
 
     struct Phone {
         uint weight;//weight of the phone
