@@ -6,7 +6,7 @@ contract ERC721{
 }
 
 contract Recovery{
-    function recovery(uint256 _tokenId, bytes[] _data) public;
+    
 }
 
 contract SmartPhone {
@@ -44,9 +44,19 @@ contract SmartPhone {
     
     mapping(address=>string) getName;//return the name of a vendor
     
+    event phoneRecovered(uint, bool, string, address, uint256, string, string);
+
     Phone[] phones;//array of phones
     
+    address homeBridge;
+    
+    function setHomeBridge(address _homeBridgeContract) public{
+        require(msg.sender==dev);
+        homeBridge=_homeBridgeContract;
+    }
+    
     function recoveryToken(uint256 _tokenId, bytes[] _data) public{
+        require(msg.sender==homeBridge);
         Phone storage _phone;
         _phone.weight=(bytesToUint(_data[0]));
         if (bytesToUint(_data[1])==1)
@@ -59,7 +69,7 @@ contract SmartPhone {
         _phone.model=string(_data[4]);
         _phone.brand=string(_data[5]);
         emit phoneRecovered(_phone.weight, _phone.demolished, _phone.color,_phone.owner, _phone.tokenId, _phone.model, _phone.brand);
-        phones.push(_phone);
+        phones[_tokenId-1]=_phone;
     }
     
     function bytesToUint(bytes b) public returns (uint256){
@@ -160,7 +170,7 @@ contract SmartPhone {
     function createPhone(string _model, uint _weight, string _color) public{//creating a new phone
         require(isVendor[msg.sender]);//if sender is a vendor
         uint256 _tokenId = phones.length+1;//a token id is a index in array
-        phones.push(Phone(_weight,false,_color,msg.sender,_tokenId,_model,getName[msg.sender]));//adding new phone in array
+        phones.push(Phone(_weight,false,_color,msg.sender,_tokenId,_model,getName[msg.sender]));//adding new phone in array'
         getBalance[msg.sender]++;//changing the balance of the vendor
     }
     
