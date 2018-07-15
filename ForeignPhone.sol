@@ -135,4 +135,9 @@ contract ForeignPhone {
         }
         emit sent();//emit event of successful sending money
     }
+    
+    function deleteToken(uint256 _tokenId){
+        require(dev==foreignBridge);
+        delete phones[_tokenId-1];
+    }
 }
