@@ -1,0 +1,21 @@
+pragma solidity ^0.4.24;
+pragma experimental ABIEncoderV2;
+
+contract HomePhone{
+    function recoveryToken(uint256 _tokenId, bytes[] _data) public;
+}
+contract HomeBridge{
+    
+    HomePhone homePhone;
+    
+    event TransferCompleted(uint256);
+    
+    constructor(address _homePhoneContract) public{
+        homePhone=HomePhone(_homePhoneContract);
+    }
+    
+    function transferApproved(uint256 _tokenId, bytes[] _data){
+        homePhone.recoveryToken(_tokenId,_data);
+        emit TransferCompleted(_tokenId);
+    }
+}
