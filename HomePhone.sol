@@ -7,6 +7,8 @@ contract ERC721{
 
 contract HomePhone {
 
+    bool canCreate=true;
+
     struct Phone {
         uint weight;//weight of the phone
         bool demolished;//is the phone demolished
@@ -42,17 +44,19 @@ contract HomePhone {
     
     event phoneRecovered(uint, bool, string, address, uint256, string, string);
 
-    Phone[] phones;//array of phones
+    mapping(uint=>Phone) phones;//map of phones
     
-    address homeBridge;
+    uint total;
     
-    function setHomeBridge(address _homeBridgeContract) public{
+    address Bridge;
+    
+    function setBridge(address _bridgeContract) public{
         require(msg.sender==dev);
-        homeBridge=_homeBridgeContract;
+        Bridge=_bridgeContract;
     }
-    
+
     function recoveryToken(uint256 _tokenId, bytes[] _data) public{
-        require(msg.sender==homeBridge);
+        require(msg.sender==Bridge);
         Phone storage _phone;
         _phone.weight=(bytesToUint(_data[0]));
         if (bytesToUint(_data[1])==1)
@@ -66,6 +70,10 @@ contract HomePhone {
         _phone.brand=string(_data[5]);
         emit phoneRecovered(_phone.weight, _phone.demolished, _phone.color,_phone.owner, _phone.tokenId, _phone.model, _phone.brand);
         phones[_tokenId-1]=_phone;
+        if (!canCreate){
+            getBalance[_phone.owner]++;
+            total++;
+        }
     }
     
     function bytesToUint(bytes b) public returns (uint256){
@@ -85,14 +93,15 @@ contract HomePhone {
         }
         return address(result); 
     }
+    
     function tokenByIndex(uint256 _index) external view returns (uint256){//return token id of phone with given index
-        require(_index<phones.length);
+        require(_index<total);
         require(_index>=0);
-        return phones[_index].tokenId;
+        return phones[_index+1].tokenId;
     }
     
     function totalSupply() external view returns (uint256){//return count of all tokens
-        return phones.length;
+        return total;
     }
     
     constructor() public{//constructor of the contract
@@ -143,7 +152,6 @@ contract HomePhone {
     }
 
     event sent();
-    event newToken(uint256);
     
     function onERC721Received(address _operator, address _from, uint256 _tokenId, bytes data) external pure returns(bytes4){
          return( bytes4(keccak256("onERC721Received(address,address,uint256,bytes)")));
@@ -164,15 +172,25 @@ contract HomePhone {
     }
     
     function createPhone(string _model, uint _weight, string _color) public{//creating a new phone
+        require(canCreate);
         require(isVendor[msg.sender]);//if sender is a vendor
-        uint256 _tokenId = phones.length+1;//a token id is a index in array
-        phones.push(Phone(_weight,false,_color,msg.sender,_tokenId,_model,getName[msg.sender]));//adding new phone in array'
+        uint256 _tokenId = total+1;//a token id is a index in array
+        phones[_tokenId]=(Phone(_weight,false,_color,msg.sender,_tokenId,_model,getName[msg.sender]));//adding new phone in array'
         getBalance[msg.sender]++;//changing the balance of the vendor
     }
     
     function demolish(uint256 _tokenId) public{//demolishing the phone if the phone is existing
+        require(canCreate);
         require(msg.sender==phones[_tokenId-1].owner);//if sender is an owner of the phone 
         require(phones[_tokenId-1].demolished==false);//if phone is not demolished
         phones[_tokenId-1].demolished=true;
+    }
+    
+    function deleteToken(uint256 _tokenId) public{
+        require(!canCreate);
+        require(dev==Bridge);
+        delete phones[_tokenId-1];
+        total--;
+        getBalance[phones[_tokenId-1].owner]--;
     }
 }
