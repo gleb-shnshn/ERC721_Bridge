@@ -14,12 +14,38 @@ contract HomeBridge{
          return( bytes4(keccak256("onERC721Received(address,address,uint256,bytes)")));
     }
     
+    mapping(address => bool) isExtBridge;
+    uint requiredSig;
+    
     HomePhone homePhone;
+    address dev;
+    
+    mapping(bytes32=>uint) signsOf;
+    mapping(bytes32=>bool) tokenRecovered;
+    mapping(bytes32=>bool) isVoted;
     
     event TransferCompleted(uint256);
     
-    constructor(address _homePhoneContract) public{
+    constructor(address _homePhoneContract, address[] _extBridges, uint _requiredSig) public{
+        for(uint i=0; i<_extBridges.length; i++){
+            isExtBridge[_extBridges[i]]=true;
+        }
+        requiredSig=_requiredSig;
         homePhone=HomePhone(_homePhoneContract);
+        dev=msg.sender;
+    }
+    
+    function preTrasfer(bytes32 _txHash, uint256 _tokenId, bytes[] _data, address _reciever) public{
+        require(isExtBridge[msg.sender]==true);
+        bytes32 _hash=keccak256(_reciever, _tokenId, _txHash);
+        require(isVoted[keccak256(_hash,msg.sender)]==false);
+        isVoted[keccak256(_hash,msg.sender)]=true;
+        signsOf[_hash]++;
+        if (signsOf[_hash]>=requiredSig && tokenRecovered[_hash]==false){
+            transferApproved(_tokenId, _data);
+            tokenRecovered[_hash]=true;
+        }
+        
     }
     
     function transferApproved(uint256 _tokenId, bytes[] _data){
