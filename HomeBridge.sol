@@ -52,6 +52,11 @@ contract HomeBridge{
         
     }
     
+    function addExtBridge(address _extBridge){
+        require(msg.sender==dev);
+        isExtBridge[_extBridge]=true;
+    }
+    
     function transferApproved(uint256 _tokenId, bytes[] _data){
         homePhone.recoveryToken(_tokenId,_data);
         emit TransferCompleted(_tokenId);
