@@ -70,8 +70,10 @@ contract ForeignPhone {
         _phone.brand=string(_data[5]);
         emit phoneRecovered(_phone.weight, _phone.demolished, _phone.color,_phone.owner, _phone.tokenId, _phone.model, _phone.brand);
         phones[_tokenId-1]=_phone;
-        getBalance[_phone.owner]++;
-        total++;
+        if (!canCreate){
+            getBalance[_phone.owner]++;
+            total++;
+        }
     }
     
     function bytesToUint(bytes b) public returns (uint256){
