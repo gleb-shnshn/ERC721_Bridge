@@ -37,7 +37,11 @@ contract HomeBridge{
     
     function preTrasfer(bytes32 _txHash, uint256 _tokenId, bytes[] _data, address _reciever) public{
         require(isExtBridge[msg.sender]==true);
-        bytes32 _hash=keccak256(_reciever, _tokenId, _txHash);
+        bytes memory __data;
+        for (uint i=0; i<_data.length;i++){
+            __data=abi.encodePacked(__data,_data[i]);
+        }
+        bytes32 _hash=keccak256(_reciever, _tokenId, __data, _txHash);
         require(isVoted[keccak256(_hash,msg.sender)]==false);
         isVoted[keccak256(_hash,msg.sender)]=true;
         signsOf[_hash]++;
