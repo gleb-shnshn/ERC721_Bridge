@@ -2,16 +2,17 @@ pragma solidity ^0.4.24;
 pragma experimental ABIEncoderV2;
 
 contract HomePhone{
-    function recoveryToken(uint256 _tokenId, bytes[] _data) public;
-    function getSerializedData(uint256 _tokenId) public view returns(bytes[]);
+    function recoveryToken(uint256 _tokenId, uint256 _weight, bool _demolished, string _color, string _model, string _brand, address _reciever) public;
+    function getData(uint256 _tokenId) public view returns(uint256, bool, string, string, string);
 }
 contract HomeBridge{
     
-    event CametoBridge(address reciever, uint256 tokenId, bytes[] data);
+    event CametoBridge(address reciever, uint256 tokenId, uint256 weight, bool demolished, string color, string model, string brand);
     
     function onERC721Received(address _operator, address _from, uint256 _tokenId, bytes data) external returns(bytes4){
-         emit CametoBridge(_from, _tokenId, homePhone.getSerializedData(_tokenId));
-         return( bytes4(keccak256("onERC721Received(address,address,uint256,bytes)")));
+        var (_weight, _demolished, _color, _model, _brand)=homePhone.getData(_tokenId);
+        emit CametoBridge(_from, _tokenId, _weight, _demolished, _color, _model, _brand);
+        return(bytes4(keccak256("onERC721Received(address,address,uint256,bytes)")));
     }
     
     mapping(address => bool) isExtBridge;
@@ -35,30 +36,21 @@ contract HomeBridge{
         dev=msg.sender;
     }
     
-    function preTrasfer(bytes32 _txHash, uint256 _tokenId, bytes[] _data, address _reciever) public{
+    function preTransfer(bytes32 _txHash, uint256 _tokenId, uint256 _weight, bool _demolished, string _color, string _model, string _brand, address _reciever) public{
         require(isExtBridge[msg.sender]==true);
-        bytes memory __data;
-        for (uint i=0; i<_data.length;i++){
-            __data=abi.encodePacked(__data,_data[i]);
-        }
-        bytes32 _hash=keccak256(_reciever, _tokenId, __data, _txHash);
+        bytes32 _hash=keccak256(_reciever, _tokenId, _weight, _demolished, _color, _model, _brand, _txHash);
         require(isVoted[keccak256(_hash,msg.sender)]==false);
         isVoted[keccak256(_hash,msg.sender)]=true;
         signsOf[_hash]++;
         if (signsOf[_hash]>=requiredSig && tokenRecovered[_hash]==false){
-            transferApproved(_tokenId, _data);
+            homePhone.recoveryToken(_tokenId, _weight, _demolished, _color, _model, _brand,_reciever);
+            emit TransferCompleted(_tokenId);
             tokenRecovered[_hash]=true;
         }
-        
     }
     
     function addExtBridge(address _extBridge){
         require(msg.sender==dev);
         isExtBridge[_extBridge]=true;
-    }
-    
-    function transferApproved(uint256 _tokenId, bytes[] _data){
-        homePhone.recoveryToken(_tokenId,_data);
-        emit TransferCompleted(_tokenId);
     }
 }

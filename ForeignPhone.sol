@@ -8,7 +8,7 @@ contract ERC721{
 contract ForeignPhone {
 
     bool canCreate=false;
-
+    
     struct Phone {
         uint weight;//weight of the phone
         bool demolished;//is the phone demolished
@@ -19,19 +19,9 @@ contract ForeignPhone {
         string brand;//brand of vendor who created this phone
     }
     
-    function getSerializedData(uint256 _tokenId) public view returns(bytes[]){
-        Phone storage _phone = phones[_tokenId-1];
-        bytes[] memory data = new bytes[](6);
-        data[0]=abi.encodePacked(_phone.weight);
-        if (_phone.demolished==true)
-            data[1]=abi.encodePacked(1);
-        else
-            data[1]=abi.encodePacked(0);
-        data[2]=abi.encodePacked(_phone.color);
-        data[3]=abi.encodePacked(_phone.owner);
-        data[4]=abi.encodePacked(_phone.model);
-        data[5]=abi.encodePacked(_phone.brand);
-        return (data);
+    function getData(uint256 _tokenId) public view returns(uint256, bool, string, string, string){
+        Phone storage _phone = phones[_tokenId];
+        return (_phone.weight, _phone.demolished, _phone.color, _phone.model, _phone.brand);
     }
 
     address dev;//address of person who deployed contract, he has the permission of registering vendors
@@ -55,43 +45,14 @@ contract ForeignPhone {
         Bridge=_bridgeContract;
     }
 
-    function recoveryToken(uint256 _tokenId, bytes[] _data) public{
+    function recoveryToken(uint256 _tokenId, uint256 _weight, bool _demolished, string _color, string _model, string _brand, address _reciever) public{
         require(msg.sender==Bridge);
-        Phone storage _phone;
-        _phone.weight=(bytesToUint(_data[0]));
-        if (bytesToUint(_data[1])==1)
-            _phone.demolished=true;
-        else
-            _phone.demolished=false;
-        _phone.color=string(_data[2]);
-        _phone.owner=bytesToAddr(_data[3]);
-        _phone.tokenId=_tokenId;
-        _phone.model=string(_data[4]);
-        _phone.brand=string(_data[5]);
-        emit phoneRecovered(_phone.weight, _phone.demolished, _phone.color,_phone.owner, _phone.tokenId, _phone.model, _phone.brand);
-        phones[_tokenId-1]=_phone;
+        phones[_tokenId]=(Phone(_weight, _demolished, _color,_reciever, _tokenId, _model, _brand));
+        emit phoneRecovered(_weight, _demolished, _color,_reciever, _tokenId, _model, _brand);
         if (!canCreate){
-            getBalance[_phone.owner]++;
+            getBalance[_reciever]++;
             total++;
         }
-    }
-    
-    function bytesToUint(bytes b) public returns (uint256){
-        uint256 number;
-        for(uint i=0;i<b.length;i++){
-            number = number + uint(b[i])*(2**(8*(b.length-(i+1))));
-        }
-        return number;
-    } 
-    
-    function bytesToAddr (bytes b) constant returns (address) {
-        uint result = 0;
-        for (uint i = b.length-1; i+1 > 0; i--) {
-            uint c = uint(b[i]);
-            uint to_inc = c * ( 16 ** ((b.length - i-1) * 2));
-            result += to_inc;
-        }
-        return address(result); 
     }
     
     function tokenByIndex(uint256 _index) external view returns (uint256){//return token id of phone with given index
@@ -128,18 +89,15 @@ contract ForeignPhone {
     }
     
     function getColor(uint256 _tokenId) public view returns(string){//returning the color of the phone
-        require(phones[_tokenId-1].tokenId!=0);
-        return(phones[_tokenId-1].color);
+        return(phones[_tokenId].color);
     }
     
      function getWeight(uint256 _tokenId) public view returns(uint){//returning the weight of the phone
-        require(phones[_tokenId-1].tokenId!=0);
-        return(phones[_tokenId-1].weight);
+        return(phones[_tokenId].weight);
     }
     
      function ownerOf(uint256 _tokenId) public view returns(address){//returning the owner of the token by id
-        require(phones[_tokenId-1].tokenId!=0);
-        return(phones[_tokenId-1].owner);
+        return(phones[_tokenId].owner);
     }
     
     function balanceOf(address _owner) public view returns(uint256){//returning the count of tokens on address
@@ -147,7 +105,7 @@ contract ForeignPhone {
     }
     
     function getFullInfo(uint256 _tokenId) public view returns(string){//returning the full info about the phone
-        Phone memory _phone= phones[_tokenId-1];
+        Phone memory _phone= phones[_tokenId];
         return string(abi.encodePacked(_phone.brand, " ", _phone.model));
     }
 
@@ -159,9 +117,9 @@ contract ForeignPhone {
     
     function safeTransferFrom(address _from, address _to, uint256 _tokenId) public payable{//transfering the phone to the new owner if the phone is existing
         require(_from==msg.sender);//if sender is an owner of address _from
-        require(_from==phones[_tokenId-1].owner);//if sender is the owner of the phone
-        require(phones[_tokenId-1].demolished==false);//if phone is not demolished
-        phones[_tokenId-1].owner=_to;//changing owner
+        require(_from==phones[_tokenId].owner);//if sender is the owner of the phone
+        require(phones[_tokenId].demolished==false);//if phone is not demolished
+        phones[_tokenId].owner=_to;//changing owner
         getBalance[_from]--;//changing the balance of the sender
         getBalance[_to]++;//changing the balance of the getter
         if (isContract(_to)){//if getter is a contract
@@ -181,16 +139,16 @@ contract ForeignPhone {
     
     function demolish(uint256 _tokenId) public{//demolishing the phone if the phone is existing
         require(canCreate);
-        require(msg.sender==phones[_tokenId-1].owner);//if sender is an owner of the phone 
-        require(phones[_tokenId-1].demolished==false);//if phone is not demolished
-        phones[_tokenId-1].demolished=true;
+        require(msg.sender==phones[_tokenId].owner);//if sender is an owner of the phone 
+        require(phones[_tokenId].demolished==false);//if phone is not demolished
+        phones[_tokenId].demolished=true;
     }
     
     function deleteToken(uint256 _tokenId) public{
         require(!canCreate);
         require(dev==Bridge);
-        delete phones[_tokenId-1];
+        delete phones[_tokenId];
         total--;
-        getBalance[phones[_tokenId-1].owner]--;
+        getBalance[phones[_tokenId].owner]--;
     }
 }
