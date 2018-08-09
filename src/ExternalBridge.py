@@ -1,6 +1,7 @@
 from web3 import Web3, HTTPProvider
 import web3
 import time
+import json
 
 addrk="0xa957b650ae9fa405a56e6d5c9dba171d5a60a1df"#address of the kovan contract 
 addrs="0xa56319b3f889f3ef0b52b658df101ab66a305214"#address of the sokol contract 
@@ -31,15 +32,17 @@ contr_s=sokol.eth.contract(address=Web3.toChecksumAddress(addrs), abi=abis)
 #transaction body
 txDict={"from":localak.address, 'gas': 8000000, 'gasPrice':Web3.toWei(20, "gwei")}
 
-k1=0#starting block for kovan
+blocks=json.loads(open("lastBlocks.json").read())
+
+k1=blocks["lastBlockKovan"]#starting block for kovan
 k2=0#ending block for kovan
 
 s1=0#starting block for sokol
-s2=0#ending block for sokol
+s2=blocks["lastBlockSokol"]#ending block for sokol
 
 while (True):
   k2=kovan.eth.getBlock("latest")["number"]#getting last block of kovan
-  filter_k={"fromBlock":k1,"toBlock":k2,"address":addrk}#initializing a filter for kovan
+  filter_k={"fromBlock":k1,"toBlock":k2,"address":Web3.toChecksumAddress(addrk)}#initializing a filter for kovan
   logs_k=kovan.eth.getLogs(filter_k)#getting logs for kovan
   for log in logs_k:#processing every log
     tx=log["transactionHash"]#getting hash of every transaction
@@ -64,7 +67,7 @@ while (True):
   k1=k2+1;#updating starting block for kovan
 
   s2=sokol.eth.getBlock("latest")["number"]#getting last block of sokol
-  filter_s={"fromBlock":s1,"toBlock":s2,"address":addrs}#initializing a filter for sokol
+  filter_s={"fromBlock":s1,"toBlock":s2,"address":Web3.toChecksumAddress(addrs)}#initializing a filter for sokol
   logs_s=sokol.eth.getLogs(filter_s)#getting logs for sokol
   for log in logs_s:#processing every log
     tx=log["transactionHash"]#getting hash of every transaction
@@ -87,5 +90,9 @@ while (True):
       kovan.eth.waitForTransactionReceipt(tx_hash)
       print(tx_hash)
   s1=s2+1;#updating starting block for sokol
-
-  time.sleep(10)#sleeping to do not make too many requests
+  
+  blocks=open("lastBlocks.json","w")
+  blocks.write(json.dumps({"lastBlockKovan":k1, "lastBlockSokol":s1}))
+  blocks.close()
+  
+  time.sleep(5)#sleeping to do not make too many requests

@@ -1,4 +1,4 @@
-# ERC721_Bridge
+# ERC721 Bridge
 Example of ERC721 token based on the real smartphones and bridge between two different blockchains.
 
 This solution was made to solve the problem of exchanging information about tokens in different blockchains.
