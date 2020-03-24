@@ -1,102 +1,83 @@
 from web3 import Web3, HTTPProvider
-import web3
 import time
 import json
 
-addrk = "0xa957b650ae9fa405a56e6d5c9dba171d5a60a1df"  # address of the kovan contract
-addrs = "0xa56319b3f889f3ef0b52b658df101ab66a305214"  # address of the sokol contract
+
+class EventListener:
+    def __init__(self, contract_address, abi_name, tag, from_web3, to_web3):
+        abi = open(abi_name).read()
+        self.contract_address = Web3.toChecksumAddress(contract_address)
+        self.web3 = from_web3
+        self.tag = tag
+        self.to_web3 = to_web3
+        self.contract = self.web3.eth.contract(address=self.contract_address, abi=abi)
+        self.account = self.web3.eth.account.privateKeyToAccount(PRIVATE_KEY)
+        self.account_to = self.to_web3.eth.account.privateKeyToAccount(PRIVATE_KEY)
+        self.address = self.account.address
+        blocks = json.loads(open("lastBlocks.json").read())
+        self.from_block = blocks[self.tag]
+        self.to_block = blocks[self.tag]
+
+    def listen(self):
+        self.to_block = self.web3.eth.getBlock("latest")["number"]  # getting last block
+        filter_settings = {"fromBlock": self.from_block, "toBlock": self.to_block,
+                           "address": self.contract_address}  # initializing a filter
+        logs = self.web3.eth.getLogs(filter_settings)  # getting logs
+        for log in logs:  # processing every log
+            tx_hash = log["transactionHash"]  # getting hash of every transaction
+            receipt = self.web3.eth.getTransactionReceipt(tx_hash)  # getting receipt of every transaction
+            events = self.contract.events.CametoBridge().processReceipt(receipt)  # getting events of every receipt
+            for event in events:  # processing every event
+                # getting parameters from event
+                _weight = event.args['weight']
+                _demolished = event.args['demolished']
+                _color = event.args['color']
+                _model = event.args['model']
+                _brand = event.args['brand']
+                _tokenId = event.args['tokenId']
+                _receiver = event.args['reciever']
+
+                nonce = self.to_web3.eth.getTransactionCount(self.address)
+                TX_SAMPLE["nonce"] = nonce
+                tx = self.contract.functions.preTransfer(tx_hash,
+                                                         _tokenId,
+                                                         _weight,
+                                                         _demolished,
+                                                         _color,
+                                                         _model,
+                                                         _brand,
+                                                         _receiver).buildTransaction(TX_SAMPLE)
+                signed_tx = self.account_to.signTransaction(tx)
+                tx_hash = self.to_web3.eth.sendRawTransaction(
+                    signed_tx.rawTransaction)  # transact function to another bridge
+                self.to_web3.eth.waitForTransactionReceipt(tx_hash)
+        self.from_block = self.to_block + 1
+
+        blocks = json.load(open("lastBlocks.json", "r"))
+        blocks[self.tag] = self.from_block
+        json.dump(blocks, open("lastBlocks.json", "w"))
+
+
+PRIVATE_KEY = Web3.toHex(Web3.sha3(text="The Great Bridge between BlockChains"))  # private key for External Bridge
+DELAY = 5  # delay between checks
+
+kovan_address = "0xa957b650ae9fa405a56e6d5c9dba171d5a60a1df"  # address of the kovan contract
+sokol_address = "0xa56319b3f889f3ef0b52b658df101ab66a305214"  # address of the sokol contract
 
 # all addresses
 # ForeignPhone 0x972e2d8cf6d42c4af7a35c4a0ef38aa40ed720ac
 # ForeignBridge 0xa957b650ae9fa405a56e6d5c9dba171d5a60a1df
 # HomePhone 0xe4ed463889a926006f0de7b34cbfaad7deedfc62
 # HomeBridge 0xa56319b3f889f3ef0b52b658df101ab66a305214
-
-pk = web3.eth.to_hex(Web3.sha3(text="The Great Bridge between BlockChains"))  # private key for External Bridge
-
-abik = open("ABIk.txt").read()  # reading abi of the kovan contract
-abis = open("ABIs.txt").read()  # reading abi of the sokol contract
-
-kovan = Web3(HTTPProvider("https://kovan.infura.io/"))  # connecting to the kovan
-sokol = Web3(HTTPProvider("https://sokol.poa.network/"))  # connecting to the sokol
-
-# initializing accounts for BlockChains
-localak = kovan.eth.account.privateKeyToAccount(pk)
-localas = sokol.eth.account.privateKeyToAccount(pk)
-# 0x9c069F7Dbeec58ce2a6DF486De239e32b397D475
-
-# initializing contracts
-contr_k = kovan.eth.contract(address=Web3.toChecksumAddress(addrk), abi=abik)
-contr_s = sokol.eth.contract(address=Web3.toChecksumAddress(addrs), abi=abis)
+kovan_web3 = Web3(HTTPProvider("https://kovan.infura.io/"))
+sokol_web3 = Web3(HTTPProvider("https://sokol.poa.network/"))
+kovan_listener = EventListener(kovan_address, "ABIk.txt", "lastBlockKovan", kovan_web3, sokol_web3)
+sokol_listener = EventListener(sokol_address, "ABIs.txt", "lastBlockSokol", sokol_web3, kovan_web3)
 
 # transaction body
-txDict = {"from": localak.address, 'gas': 8000000, 'gasPrice': Web3.toWei(20, "gwei")}
-
-blocks = json.loads(open("lastBlocks.json").read())
-
-k1 = blocks["lastBlockKovan"]  # starting block for kovan
-k2 = 0  # ending block for kovan
-
-s1 = 0  # starting block for sokol
-s2 = blocks["lastBlockSokol"]  # ending block for sokol
+TX_SAMPLE = {"from": kovan_listener.address, 'gas': 8000000, 'gasPrice': Web3.toWei(20, "gwei")}
 
 while True:
-    k2 = kovan.eth.getBlock("latest")["number"]  # getting last block of kovan
-    filter_k = {"fromBlock": k1, "toBlock": k2,
-                "address": Web3.toChecksumAddress(addrk)}  # initializing a filter for kovan
-    logs_k = kovan.eth.getLogs(filter_k)  # getting logs for kovan
-    for log in logs_k:  # processing every log
-        tx = log["transactionHash"]  # getting hash of every transaction
-        rec = kovan.eth.getTransactionReceipt(tx)  # getting receipt of every transaction
-        events = contr_k.events.CametoBridge().processReceipt(rec)  # getting events of every receipt
-        for event in events:  # processing every event
-            # getting parameters from event
-            _weight = event.args['weight']
-            _demolished = event.args['demolished']
-            _color = event.args['color']
-            _model = event.args['model']
-            _brand = event.args['brand']
-            _tokenId = event.args['tokenId']
-            _receiver = event.args['reciever']
-            nonce = sokol.eth.getTransactionCount(localas.address)
-            txDict["nonce"] = nonce
-            tx = contr_s.functions.preTransfer(tx, _tokenId, _weight, _demolished, _color, _model, _brand,
-                                               _receiver).buildTransaction(txDict)
-            signed_tx = localas.signTransaction(tx)
-            tx_hash = sokol.eth.sendRawTransaction(signed_tx.rawTransaction)  # transact function to another bridge
-            sokol.eth.waitForTransactionReceipt(tx_hash)
-            print(tx_hash)
-    k1 = k2 + 1  # updating starting block for kovan
-
-    s2 = sokol.eth.getBlock("latest")["number"]  # getting last block of sokol
-    filter_s = {"fromBlock": s1, "toBlock": s2,
-                "address": Web3.toChecksumAddress(addrs)}  # initializing a filter for sokol
-    logs_s = sokol.eth.getLogs(filter_s)  # getting logs for sokol
-    for log in logs_s:  # processing every log
-        tx = log["transactionHash"]  # getting hash of every transaction
-        rec = sokol.eth.getTransactionReceipt(tx)  # getting receipt of every transaction
-        events = contr_s.events.CametoBridge().processReceipt(rec)  # getting events of every receipt
-        for event in events:
-            # getting parameters from event
-            _weight = event.args['weight']
-            _demolished = event.args['demolished']
-            _color = event.args['color']
-            _model = event.args['model']
-            _brand = event.args['brand']
-            _tokenId = event.args['tokenId']
-            _receiver = event.args['reciever']
-            nonce = kovan.eth.getTransactionCount(localak.address)
-            txDict["nonce"] = nonce
-            tx = contr_k.functions.preTransfer(tx, _tokenId, _weight, _demolished, _color, _model, _brand,
-                                               _receiver).buildTransaction(txDict)
-            signed_tx = localak.signTransaction(tx)
-            tx_hash = kovan.eth.sendRawTransaction(signed_tx.rawTransaction)  # transact function to another bridge
-            kovan.eth.waitForTransactionReceipt(tx_hash)
-            print(tx_hash)
-    s1 = s2 + 1  # updating starting block for sokol
-
-    blocks = open("lastBlocks.json", "w")
-    blocks.write(json.dumps({"lastBlockKovan": k1, "lastBlockSokol": s1}))
-    blocks.close()
-
-    time.sleep(5)  # sleeping to do not make too many requests
+    kovan_listener.listen()
+    sokol_listener.listen()
+    time.sleep(DELAY)
